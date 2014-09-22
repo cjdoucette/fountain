@@ -537,7 +537,7 @@ int main (int argc, char **argv) {
 			if (fp == NULL) {
 				bzero(data[i-1], blocksize);
  			} else {
-				sprintf(fname, "%s/Coding/%s_k%0*d%s", curdir, s1, md, i, extension);
+				sprintf(fname, "%s/Coding/k%0*d", curdir, md, i);
 				if (n == 1) {
 					fp2 = fopen(fname, "wb");
 				}
@@ -553,7 +553,7 @@ int main (int argc, char **argv) {
 			if (fp == NULL) {
 				bzero(data[i-1], blocksize);
  			} else {
-				sprintf(fname, "%s/Coding/%s_m%0*d%s", curdir, s1, md, i, extension);
+				sprintf(fname, "%s/Coding/m%0*d", curdir, md, i);
 				if (n == 1) {
 					fp2 = fopen(fname, "wb");
 				}
@@ -571,7 +571,7 @@ int main (int argc, char **argv) {
 
 	/* Create metadata file */
         if (fp != NULL) {
-		sprintf(fname, "%s/Coding/%s_meta.txt", curdir, s1);
+		sprintf(fname, "%s/Coding/%s%s_meta.txt", curdir, s1, extension);
 		fp2 = fopen(fname, "wb");
 		fprintf(fp2, "%s\n", argv[1]);
 		fprintf(fp2, "%d\n", size);

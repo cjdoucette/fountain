@@ -526,7 +526,10 @@ int *jerasure_erasures_to_erased(int k, int m, int *erasures)
 
   td = k+m;
   erased = talloc(int, td);
-  if (erased == NULL) return NULL;
+  if (erased == NULL) {
+    fprintf(stderr, "cannot allocate erased\n");
+    return NULL;
+  }
   t_non_erased = td;
 
   for (i = 0; i < td; i++) erased[i] = 0;
@@ -729,7 +732,9 @@ static char **set_up_ptrs_for_scheduled_decoding(int k, int m, int *erasures, ch
   }
   
   erased = jerasure_erasures_to_erased(k, m, erasures);
-  if (erased == NULL) return NULL;
+  if (erased == NULL) {
+    return NULL;
+  }
 
   /* Set up ptrs.  It will be as follows:
 
@@ -884,6 +889,7 @@ static int **jerasure_generate_decoding_schedule(int k, int m, int w, int *bitma
     free(inverse);
   } 
 
+
   /* Next, here comes the hard part.  For each coding node that needs
      to be decoded, you start by putting its rows of the distribution
      matrix into the decoding matrix.  If there were no failed data
@@ -953,7 +959,9 @@ int jerasure_schedule_decode_lazy(int k, int m, int w, int *bitmatrix, int *eras
   int **schedule;
  
   ptrs = set_up_ptrs_for_scheduled_decoding(k, m, erasures, data_ptrs, coding_ptrs);
-  if (ptrs == NULL) return -1;
+  if (ptrs == NULL) {
+	return -1;
+  }
 
   schedule = jerasure_generate_decoding_schedule(k, m, w, bitmatrix, erasures, smart);
   if (schedule == NULL) {

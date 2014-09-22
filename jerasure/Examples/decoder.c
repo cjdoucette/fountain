@@ -65,6 +65,7 @@ same arguments, and encoder.c does error check.
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <errno.h>
 #include <unistd.h>
 #include "jerasure.h"
 #include "reed_sol.h"
@@ -114,6 +115,8 @@ int main (int argc, char **argv) {
 	char *temp;
 	char *cs1, *cs2, *extension;
 	char *fname;
+	char *filename;
+	char *blockname;
 	int md;
 	char *curdir;
 
@@ -133,8 +136,8 @@ int main (int argc, char **argv) {
 	timing_set(&t1);
 
 	/* Error checking parameters */
-	if (argc != 2) {
-		fprintf(stderr, "usage: inputfile\n");
+	if (argc != 3) {
+		fprintf(stderr, "usage: filename blockname\n");
 		exit(0);
 	}
 	curdir = (char *)malloc(sizeof(char)*100);
@@ -158,9 +161,12 @@ int main (int argc, char **argv) {
            extension = strdup("");
         }	
 	fname = (char *)malloc(sizeof(char*)*(100+strlen(argv[1])+20));
+	filename = argv[1];
+	blockname = argv[2];
 
 	/* Read in parameters from metadata file */
-	sprintf(fname, "%s/Coding/%s_meta.txt", curdir, cs1);
+	sprintf(fname, "%s/%s/%s/%s_meta.txt", curdir, filename, blockname,
+		blockname);
 
 	fp = fopen(fname, "rb");
         if (fp == NULL) {
@@ -256,13 +262,14 @@ int main (int argc, char **argv) {
 		numerased = 0;
 		/* Open files, check for erasures, read in data/coding */	
 		for (i = 1; i <= k; i++) {
-			sprintf(fname, "%s/Coding/%s_k%0*d%s", curdir, cs1, md, i, extension);
+			sprintf(fname, "%s/%s/%s/k%0*d", curdir, filename,
+				blockname, md, i);
 			fp = fopen(fname, "rb");
 			if (fp == NULL) {
 				erased[i-1] = 1;
 				erasures[numerased] = i-1;
 				numerased++;
-				//printf("%s failed\n", fname);
+				printf("%s failed: %s\n", fname, strerror(errno));
 			}
 			else {
 				if (buffersize == origsize) {
@@ -279,13 +286,14 @@ int main (int argc, char **argv) {
 			}
 		}
 		for (i = 1; i <= m; i++) {
-			sprintf(fname, "%s/Coding/%s_m%0*d%s", curdir, cs1, md, i, extension);
-				fp = fopen(fname, "rb");
+			sprintf(fname, "%s/%s/%s/m%0*d", curdir, filename,
+				blockname, md, i);
+			fp = fopen(fname, "rb");
 			if (fp == NULL) {
 				erased[k+(i-1)] = 1;
 				erasures[numerased] = k+i-1;
 				numerased++;
-				//printf("%s failed\n", fname);
+				printf("%s failed\n", fname);
 			}
 			else {
 				if (buffersize == origsize) {
@@ -334,9 +342,9 @@ int main (int argc, char **argv) {
 			fprintf(stderr, "Unsuccessful!\n");
 			exit(0);
 		}
-	
 		/* Create decoded file */
-		sprintf(fname, "%s/Coding/%s_decoded%s", curdir, cs1, extension);
+		sprintf(fname, "%s/%s/%s/%s_decoded", curdir,
+			 filename, blockname, blockname);
 		if (n == 1) {
 			fp = fopen(fname, "wb");
 		}
