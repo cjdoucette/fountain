@@ -23,7 +23,6 @@ drink: drink.o fountain.o
 
 gf-complete:
 	cd gf-complete; \
-	echo "hello" > test.txt; \
 	./autogen.sh; \
 	./configure; \
 	make; \
