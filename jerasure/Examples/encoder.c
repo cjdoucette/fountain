@@ -74,6 +74,8 @@ is the file name with "_k#" or "_m#" and then the extension.
 
 #define N 10
 
+#define ENCODED_DIR	"encoded"
+
 enum Coding_Technique {Reed_Sol_Van, Reed_Sol_R6_Op, Cauchy_Orig, Cauchy_Good, Liberation, Blaum_Roth, Liber8tion, RDP, EVENODD, No_Coding};
 
 char *Methods[N] = {"reed_sol_van", "reed_sol_r6_op", "cauchy_orig", "cauchy_good", "liberation", "blaum_roth", "liber8tion", "no_coding"};
@@ -337,9 +339,9 @@ int main (int argc, char **argv) {
 		}
 	
 		/* Create Coding directory */
-		i = mkdir("Coding", S_IRWXU);
+		i = mkdir(ENCODED_DIR, S_IRWXU);
 		if (i == -1 && errno != EEXIST) {
-			fprintf(stderr, "Unable to create Coding directory.\n");
+			fprintf(stderr, "Unable to create encoded directory.\n");
 			exit(0);
 		}
 	
@@ -537,7 +539,8 @@ int main (int argc, char **argv) {
 			if (fp == NULL) {
 				bzero(data[i-1], blocksize);
  			} else {
-				sprintf(fname, "%s/Coding/k%0*d", curdir, md, i);
+				sprintf(fname, "%s/%s/k%0*d", curdir,
+					ENCODED_DIR, md, i);
 				if (n == 1) {
 					fp2 = fopen(fname, "wb");
 				}
@@ -553,7 +556,8 @@ int main (int argc, char **argv) {
 			if (fp == NULL) {
 				bzero(data[i-1], blocksize);
  			} else {
-				sprintf(fname, "%s/Coding/m%0*d", curdir, md, i);
+				sprintf(fname, "%s/%s/m%0*d", curdir,
+					ENCODED_DIR, md, i);
 				if (n == 1) {
 					fp2 = fopen(fname, "wb");
 				}
@@ -571,7 +575,8 @@ int main (int argc, char **argv) {
 
 	/* Create metadata file */
         if (fp != NULL) {
-		sprintf(fname, "%s/Coding/%s%s_meta.txt", curdir, s1, extension);
+		sprintf(fname, "%s/%s/%s%s_meta.txt", curdir, ENCODED_DIR,
+			s1, extension);
 		fp2 = fopen(fname, "wb");
 		fprintf(fp2, "%s\n", argv[1]);
 		fprintf(fp2, "%d\n", size);

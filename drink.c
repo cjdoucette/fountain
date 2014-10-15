@@ -9,7 +9,7 @@
 #include "fountain.h"
 
 #define CHUNK_SIZE	384
-#define CONTENT_DIR	"content"
+#define DECODED_DIR	"decoded"
 
 #define USAGE	"usage:\t./drink cli_addr_file srv_addr_file req_file\n"
 
@@ -45,7 +45,7 @@ void create_block_dirs(const char *req_file, __u32 num_blocks)
 	 * number of bytes allocated, so we must add one for the
 	 * terminating null byte.
 	 */
-	len = asprintf(&block_path, "%s/%s/b%0*d", CONTENT_DIR,
+	len = asprintf(&block_path, "%s/%s/b%0*d", DECODED_DIR,
 			     req_file, n_digits, 0);
 	if (len == -1) {
 		fprintf(stderr,
@@ -65,7 +65,7 @@ void create_block_dirs(const char *req_file, __u32 num_blocks)
 		 * will never need more space than that.
 		 */
 		len = snprintf(block_path, alloc_len, "%s/%s/b%0*d",
-				CONTENT_DIR, req_file, n_digits, i);
+				DECODED_DIR, req_file, n_digits, i);
 		if (len < 0) {
 			fprintf(stderr,
 				"snprintf: cannot allocate file path\n");
@@ -141,7 +141,7 @@ void recv_file(int s, const struct sockaddr *expected_srv,
 	num_recv_in_block = malloc(num_blocks * sizeof(*num_recv_in_block));
 
 	padding_len = asprintf(&padding_file_path, "%s/%s/padding.txt",
-		CONTENT_DIR, req_file);
+		DECODED_DIR, req_file);
 	if (padding_len == -1) {
 		fprintf(stderr,
 			"asprintf: cannot allocate padding file path\n");
@@ -152,7 +152,7 @@ void recv_file(int s, const struct sockaddr *expected_srv,
 	fprintf(padding_file, "%hd", padding);
 	fclose(padding_file);
 
-	len = asprintf(&recv_file_path, "%s/%s/b%0*d/%s%0*d", CONTENT_DIR,
+	len = asprintf(&recv_file_path, "%s/%s/b%0*d/%s%0*d", DECODED_DIR,
 		       req_file, num_digits(num_blocks - 1), block_id,
 		       chunk_id > 0 ? "k" : "m",
 		       chunk_id > 0 ? num_digits(DATA_FILES_PER_BLOCK) :
@@ -175,7 +175,7 @@ void recv_file(int s, const struct sockaddr *expected_srv,
 		blocks_filled++;
 
 	meta_len = asprintf(&meta_file_path, "%s/%s/b%0*d/b%0*d_meta.txt",
-			    CONTENT_DIR, req_file,
+			    DECODED_DIR, req_file,
 			    num_digits(num_blocks - 1), block_id,
 			    num_digits(num_blocks - 1), block_id);
 	meta_alloc_len = meta_len + 1;
@@ -183,7 +183,7 @@ void recv_file(int s, const struct sockaddr *expected_srv,
 	meta_file = fopen(meta_file_path, "wb");
 	assert(meta_file);
 	fprintf(meta_file, "%s/%s/b%0*d\n%lu\n%d %d %d %d %lu\n%s\n%d\n%d\n",
-		CONTENT_DIR, req_file, num_digits(num_blocks - 1), block_id,
+		DECODED_DIR, req_file, num_digits(num_blocks - 1), block_id,
 		(packet_len - sizeof(struct fountain_hdr)) *
 		DATA_FILES_PER_BLOCK, DATA_FILES_PER_BLOCK,
 		CODE_FILES_PER_BLOCK, 8, 1,
@@ -229,7 +229,7 @@ void recv_file(int s, const struct sockaddr *expected_srv,
 		 * will never need more space than that.
 		 */
 		len = snprintf(recv_file_path, alloc_len, "%s/%s/b%0*d/%s%0*d",
-			       CONTENT_DIR, req_file,
+			       DECODED_DIR, req_file,
 			       num_digits(num_blocks - 1), block_id,
 			       chunk_id > 0 ? "k" : "m",
 			       chunk_id > 0 ? num_digits(DATA_FILES_PER_BLOCK) :
@@ -252,7 +252,7 @@ void recv_file(int s, const struct sockaddr *expected_srv,
 
 		meta_len = snprintf(meta_file_path, meta_alloc_len,
 				"%s/%s/b%0*d/b%0*d_meta.txt",
-				CONTENT_DIR, req_file,
+				DECODED_DIR, req_file,
 				num_digits(num_blocks - 1), block_id,
 				num_digits(num_blocks - 1), block_id);
 		if (meta_len < 0) {
@@ -265,7 +265,7 @@ void recv_file(int s, const struct sockaddr *expected_srv,
 		assert(meta_file);
 		fprintf(meta_file,
 			"%s/%s/b%0*d\n%lu\n%d %d %d %d %lu\n%s\n%d\n%d\n",
-			CONTENT_DIR, req_file, num_digits(num_blocks - 1),
+			DECODED_DIR, req_file, num_digits(num_blocks - 1),
 			block_id,
 			(packet_len - sizeof(struct fountain_hdr)) *
 			DATA_FILES_PER_BLOCK, DATA_FILES_PER_BLOCK,
@@ -285,7 +285,7 @@ int main(int argc, char *argv[])
 	if (check_cli_params(argc, argv))
 		exit(1);
 
-	size = asprintf(&recv_file_path, "%s/%s", CONTENT_DIR, argv[3]);
+	size = asprintf(&recv_file_path, "%s/%s", DECODED_DIR, argv[3]);
 	if (size == -1) {
 		fprintf(stderr,
 			"asprintf: cannot allocate file path string\n");
