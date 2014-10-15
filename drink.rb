@@ -50,6 +50,11 @@ if __FILE__ == $PROGRAM_NAME
   bak_filename = new_filename + ".bak"
   `cat #{File.join(new_filename, "b*", "b*_decoded")} > #{bak_filename}`
   `rm -r #{new_filename}`
-  `head -c-#{padding} #{bak_filename} > #{new_filename}`
+  if padding != 3840
+    `head -c-#{padding} #{bak_filename} > #{new_filename}`
+    `rm #{bak_filename}`
+  else
+    `mv #{bak_filename} #{new_filename}`
+  end
 end
 

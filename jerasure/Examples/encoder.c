@@ -123,6 +123,8 @@ int main (int argc, char **argv) {
 	char temp[5];
 	char *s1, *s2, *extension;
 	char *fname;
+	char *dname;
+	char *bname;
 	int md;
 	char *curdir;
 	
@@ -146,8 +148,8 @@ int main (int argc, char **argv) {
 	schedule = NULL;
 	
 	/* Error check Arguments*/
-	if (argc != 8) {
-		fprintf(stderr,  "usage: inputfile k m coding_technique w packetsize buffersize\n");
+	if (argc != 10) {
+		fprintf(stderr,  "usage: inputfile dname bname k m coding_technique w packetsize buffersize\n");
 		fprintf(stderr,  "\nChoose one of the following coding techniques: \nreed_sol_van, \nreed_sol_r6_op, \ncauchy_orig, \ncauchy_good, \nliberation, \nblaum_roth, \nliber8tion");
 		fprintf(stderr,  "\n\nPacketsize is ignored for the reed_sol's");
 		fprintf(stderr,  "\nBuffersize of 0 means the buffersize is chosen automatically.\n");
@@ -155,32 +157,32 @@ int main (int argc, char **argv) {
 		exit(0);
 	}
 	/* Conversion of parameters and error checking */	
-	if (sscanf(argv[2], "%d", &k) == 0 || k <= 0) {
+	if (sscanf(argv[4], "%d", &k) == 0 || k <= 0) {
 		fprintf(stderr,  "Invalid value for k\n");
 		exit(0);
 	}
-	if (sscanf(argv[3], "%d", &m) == 0 || m < 0) {
+	if (sscanf(argv[5], "%d", &m) == 0 || m < 0) {
 		fprintf(stderr,  "Invalid value for m\n");
 		exit(0);
 	}
-	if (sscanf(argv[5],"%d", &w) == 0 || w <= 0) {
+	if (sscanf(argv[7],"%d", &w) == 0 || w <= 0) {
 		fprintf(stderr,  "Invalid value for w.\n");
 		exit(0);
 	}
-	if (argc == 6) {
+	if (argc == 8) {
 		packetsize = 0;
 	}
 	else {
-		if (sscanf(argv[6], "%d", &packetsize) == 0 || packetsize < 0) {
+		if (sscanf(argv[8], "%d", &packetsize) == 0 || packetsize < 0) {
 			fprintf(stderr,  "Invalid value for packetsize.\n");
 			exit(0);
 		}
 	}
-	if (argc != 8) {
+	if (argc != 10) {
 		buffersize = 0;
 	}
 	else {
-		if (sscanf(argv[7], "%d", &buffersize) == 0 || buffersize < 0) {
+		if (sscanf(argv[9], "%d", &buffersize) == 0 || buffersize < 0) {
 			fprintf(stderr, "Invalid value for buffersize\n");
 			exit(0);
 		}
@@ -225,17 +227,17 @@ int main (int argc, char **argv) {
 
 	/* Setting of coding technique and error checking */
 	
-	if (strcmp(argv[4], "no_coding") == 0) {
+	if (strcmp(argv[6], "no_coding") == 0) {
 		tech = No_Coding;
 	}
-	else if (strcmp(argv[4], "reed_sol_van") == 0) {
+	else if (strcmp(argv[6], "reed_sol_van") == 0) {
 		tech = Reed_Sol_Van;
 		if (w != 8 && w != 16 && w != 32) {
 			fprintf(stderr,  "w must be one of {8, 16, 32}\n");
 			exit(0);
 		}
 	}
-	else if (strcmp(argv[4], "reed_sol_r6_op") == 0) {
+	else if (strcmp(argv[6], "reed_sol_r6_op") == 0) {
 		if (m != 2) {
 			fprintf(stderr,  "m must be equal to 2\n");
 			exit(0);
@@ -246,21 +248,21 @@ int main (int argc, char **argv) {
 		}
 		tech = Reed_Sol_R6_Op;
 	}
-	else if (strcmp(argv[4], "cauchy_orig") == 0) {
+	else if (strcmp(argv[6], "cauchy_orig") == 0) {
 		tech = Cauchy_Orig;
 		if (packetsize == 0) {
 			fprintf(stderr, "Must include packetsize.\n");
 			exit(0);
 		}
 	}
-	else if (strcmp(argv[4], "cauchy_good") == 0) {
+	else if (strcmp(argv[6], "cauchy_good") == 0) {
 		tech = Cauchy_Good;
 		if (packetsize == 0) {
 			fprintf(stderr, "Must include packetsize.\n");
 			exit(0);
 		}
 	}
-	else if (strcmp(argv[4], "liberation") == 0) {
+	else if (strcmp(argv[6], "liberation") == 0) {
 		if (k > w) {
 			fprintf(stderr,  "k must be less than or equal to w\n");
 			exit(0);
@@ -279,7 +281,7 @@ int main (int argc, char **argv) {
 		}
 		tech = Liberation;
 	}
-	else if (strcmp(argv[4], "blaum_roth") == 0) {
+	else if (strcmp(argv[6], "blaum_roth") == 0) {
 		if (k > w) {
 			fprintf(stderr,  "k must be less than or equal to w\n");
 			exit(0);
@@ -298,7 +300,7 @@ int main (int argc, char **argv) {
 		}
 		tech = Blaum_Roth;
 	}
-	else if (strcmp(argv[4], "liber8tion") == 0) {
+	else if (strcmp(argv[6], "liber8tion") == 0) {
 		if (packetsize == 0) {
 			fprintf(stderr, "Must include packetsize\n");
 			exit(0);
@@ -322,6 +324,9 @@ int main (int argc, char **argv) {
 		exit(0);
 	}
 
+	dname = argv[2];
+	bname = argv[3];
+
 	/* Set global variable method for signal handler */
 	method = tech;
 
@@ -334,7 +339,7 @@ int main (int argc, char **argv) {
 		/* Open file and error check */
 		fp = fopen(argv[1], "rb");
 		if (fp == NULL) {
-			fprintf(stderr,  "Unable to open file.\n");
+			fprintf(stderr,  "Unable to open file: %s.\n", argv[1]);
 			exit(0);
 		}
 	
@@ -539,8 +544,8 @@ int main (int argc, char **argv) {
 			if (fp == NULL) {
 				bzero(data[i-1], blocksize);
  			} else {
-				sprintf(fname, "%s/%s/k%0*d", curdir,
-					ENCODED_DIR, md, i);
+				sprintf(fname, "%s/%s/%s/%s/k%0*d", curdir,
+					ENCODED_DIR, dname, bname, md, i);
 				if (n == 1) {
 					fp2 = fopen(fname, "wb");
 				}
@@ -556,8 +561,8 @@ int main (int argc, char **argv) {
 			if (fp == NULL) {
 				bzero(data[i-1], blocksize);
  			} else {
-				sprintf(fname, "%s/%s/m%0*d", curdir,
-					ENCODED_DIR, md, i);
+				sprintf(fname, "%s/%s/%s/%s/m%0*d", curdir,
+					ENCODED_DIR, dname, bname, md, i);
 				if (n == 1) {
 					fp2 = fopen(fname, "wb");
 				}
@@ -575,13 +580,13 @@ int main (int argc, char **argv) {
 
 	/* Create metadata file */
         if (fp != NULL) {
-		sprintf(fname, "%s/%s/%s%s_meta.txt", curdir, ENCODED_DIR,
-			s1, extension);
+		sprintf(fname, "%s/%s/%s/%s/meta.txt", curdir, ENCODED_DIR,
+			dname, bname);
 		fp2 = fopen(fname, "wb");
 		fprintf(fp2, "%s\n", argv[1]);
 		fprintf(fp2, "%d\n", size);
 		fprintf(fp2, "%d %d %d %d %d\n", k, m, w, packetsize, buffersize);
-		fprintf(fp2, "%s\n", argv[4]);
+		fprintf(fp2, "%s\n", argv[6]);
 		fprintf(fp2, "%d\n", tech);
 		fprintf(fp2, "%d\n", readins);
 		fclose(fp2);

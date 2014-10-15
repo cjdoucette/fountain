@@ -90,8 +90,7 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 	}
 
 	/* If it does exist, open the meta file to find the number of blocks. */
-	size = asprintf(&req_meta_file_path, "%s/%s_meta.txt",
-			req_file_path, req_file);
+	size = asprintf(&req_meta_file_path, "%s/meta.txt", req_file_path);
 	if (size == -1) {
 		fprintf(stderr,
 			"asprintf: cannot allocate meta path string\n");
@@ -153,8 +152,6 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 				  j, -i, chunk_path, padding);
 		}
 	}
-
-
 }
 
 static void recv_loop(int sock, const char *coding_dir_name, __u16 padding)

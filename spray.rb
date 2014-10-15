@@ -9,6 +9,7 @@
 
 DATA_LEN = 384
 NUM_DATA_FILES = 10
+NUM_CODE_FILES = 10
 BLOCK_LEN = NUM_DATA_FILES * DATA_LEN
 SPLITS_DIR = "splits"
 ENCODED_DIR = "encoded"
@@ -42,39 +43,45 @@ if __FILE__ == $PROGRAM_NAME
   num_digits = (num_blocks - 1).to_s().size()
   padding = BLOCK_LEN - (size % BLOCK_LEN)
 
-  `dd if=/dev/zero status=none bs=1 count=#{padding} >> #{data_file_path}`
-  `mkdir -p #{data_file_splits_dir}`
-  `split -a #{num_digits} #{data_file_path} -b #{BLOCK_LEN} b -d`
-
-  for i in 0..num_blocks-1
-    block_id = "%0*d" % [num_digits, i]
-    `mv b#{block_id} #{data_file_splits_dir}`
+  # Pad with zeros up to the nearest multiple of BLOCK_LEN, if necessary.
+  if padding != BLOCK_LEN
+    `dd if=/dev/zero status=none bs=1 count=#{padding} >> #{data_file_path}`
   end
 
+  # Create a directory to hold the split-up file and split it.
+  `mkdir -p #{data_file_splits_dir}`
+  prefix = File.join(data_file_splits_dir, "b")
+  `split -a #{num_digits} #{data_file_path} -b #{BLOCK_LEN} #{prefix} -d`
+
+  # Make encoded directory, if necessary.
   if !Dir.exists?(ENCODED_DIR)
     `mkdir #{ENCODED_DIR}`
   end
 
-  splits = Dir.entries(data_file_splits_dir)
-  for split in splits
-    next if split == '.' or split == '..'
-    `mkdir #{ENCODED_DIR}/#{split}`
+  # Make individual encoded directories for
+  # chunks and encode them.
+  `mkdir #{File.join(ENCODED_DIR, data_file)}`
+  for block in 0..(num_blocks - 1)
+    block_padded = "b%0*d" % [num_digits, block]
+    `mkdir -p #{File.join(ENCODED_DIR, data_file, block_padded)}`
+    `encoder #{File.join(data_file_splits_dir, block_padded)} #{data_file} \
+             #{block_padded} #{NUM_DATA_FILES} #{NUM_CODE_FILES} \
+             cauchy_good 8 1 0`
   end
 
-  for split in splits
-    next if split == '.' or split == '..'
-    `encoder #{File.join(data_file_splits_dir, split)} 10 10 cauchy_good 8 1 0`
-    `mv #{ENCODED_DIR}/k* #{ENCODED_DIR}/m* #{ENCODED_DIR}/#{split}_meta.txt #{ENCODED_DIR}/#{split}`
-  end
+  # Save the number of blocks in a meta file.
+  `echo #{num_blocks} > #{ENCODED_DIR}/#{data_file}/meta.txt`
 
-  `mkdir #{ENCODED_DIR}/#{data_file}`
-  `mv #{ENCODED_DIR}/b?* #{ENCODED_DIR}/#{data_file}`
-  `echo #{num_blocks} > #{ENCODED_DIR}/#{data_file}/#{data_file}_meta.txt`
+  # Remove the splits of the file, as they are no longer of any use.
   `rm -r splits`
-  `head -c-#{padding} #{data_file_path} > #{data_file_path + ".bak"}`
-  `mv #{data_file_path + ".bak"} #{data_file_path}`
+
+  if padding != BLOCK_LEN
+    `head -c-#{padding} #{data_file_path} > #{data_file_path + ".bak"}`
+    `mv #{data_file_path + ".bak"} #{data_file_path}`
+  end
 
   puts("Finished coding.")
+
+  # Use network application to serve encoded file.
   `./spray #{ARGV[0]} #{ENCODED_DIR} #{padding}`
 end
-

@@ -198,7 +198,7 @@ void recv_file(int s, const struct sockaddr *expected_srv,
 		assert(rc >= 0);
 		if (!rc) {
 			/* No response from server. */
-			fprintf(stderr, "Done receiving packets. Decoding.");
+			fprintf(stderr, "Done receiving packets. Decoding.\n");
 			return;
 		}
 
