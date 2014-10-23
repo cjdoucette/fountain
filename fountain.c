@@ -106,7 +106,7 @@ static int set_sockaddr_xia(struct sockaddr_xia *xia, const char *filename)
 	return parse_and_validate_addr(buf, &xia->sxia_addr);
 }
 
-struct sockaddr *__get_addr(char *str1, int *plen)
+struct sockaddr *get_addr(char *str1, int *plen)
 {
 	struct tmp_sockaddr_storage *skaddr;
 

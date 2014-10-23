@@ -8,7 +8,6 @@
 #include <sys/socket.h>
 #include "fountain.h"
 
-#define CHUNK_SIZE	384
 #define DECODED_DIR	"decoded"
 
 #define USAGE	"usage:\t./drink cli_addr_file srv_addr_file req_file\n"
@@ -308,9 +307,9 @@ int main(int argc, char *argv[])
 
 	s = socket(AF_XIA, SOCK_DGRAM, get_xdp_type());
 	assert(s >= 0);
-	cli = __get_addr(argv[1], &cli_len);
+	cli = get_addr(argv[1], &cli_len);
 	assert(cli);
-	srv = __get_addr(argv[2], &srv_len);
+	srv = get_addr(argv[2], &srv_len);
 	assert(srv);
 	assert(!bind(s, cli, cli_len));
 

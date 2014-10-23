@@ -11,7 +11,7 @@
 #define USAGE	"usage:\t./spray srv_addr_file coding_dir padding\n"
 
 #define CODING_META_INFO_FILE_LEN	4
-#define CHUNK_SIZE			384
+#define META_FILE_NAME			"meta.txt"
 
 static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
 		      __u32 num_blocks, __u32 block_id, __s16 chunk_id,
@@ -63,6 +63,7 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 	char *req_file;
 
 	FILE *meta_file;
+
 	int size;
 	ssize_t num_read;
 	__u32 num_blocks;
@@ -82,7 +83,7 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 		return;
 	}
 
-	/* Check if a file for that name exists. */
+	/* Check if a directory for that name exists. */
 	if (!dir_exists(req_file_path)) {
 		fprintf(stderr, "invalid request; %s does not exist\n",
 			req_file);
@@ -90,7 +91,8 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 	}
 
 	/* If it does exist, open the meta file to find the number of blocks. */
-	size = asprintf(&req_meta_file_path, "%s/meta.txt", req_file_path);
+	size = asprintf(&req_meta_file_path, "%s/%s", req_file_path,
+			META_FILE_NAME);
 	if (size == -1) {
 		fprintf(stderr,
 			"asprintf: cannot allocate meta path string\n");
@@ -104,15 +106,13 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 		return;
 	}
 	/* Read in a single four-byte integer. */
-	num_read = fscanf(meta_file, "%d", &num_blocks);
-	/* Use a different variable. */
-	if (num_read != 1) {
+	size = fscanf(meta_file, "%d", &num_blocks);
+	fclose(meta_file);
+	if (size != 1) {
 		fprintf(stderr,
 			"fscanf: cannot read number of blocks\n");
-		fclose(meta_file);
 		return;
 	}
-	fclose(meta_file);
 
 	/* Loop over all blocks. */
 	for (i = 1; i <= DATA_FILES_PER_BLOCK; i++) {
@@ -211,7 +211,7 @@ static int check_srv_params(int argc, char * const argv[])
 int main(int argc, char *argv[])
 {
 	struct sockaddr *srv;
-	int s, srv_len;
+	int s, srv_len, rc;
 	__u16 padding;
 
 	if (check_srv_params(argc, argv))
@@ -225,11 +225,20 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	srv = __get_addr(argv[1], &srv_len);
+	srv = get_addr(argv[1], &srv_len);
 	assert(!bind(s, srv, srv_len));
 
-	/* Check return value. */
-	sscanf(argv[3], "%hd", &padding);
+	/* Read padding amount. */
+	rc = sscanf(argv[3], "%hd", &padding);
+	if (errno != 0) {
+		fprintf(stderr, "%s: sscanf errno=%i: %s\n",
+			__func__, errno, strerror(errno));
+		return 1;
+	} else if (rc != 1) { 
+		fprintf(stderr, "No padding number exists.\n");
+		return 1;
+	}
+
 	recv_loop(s, argv[2], padding);
 
 	free(srv);

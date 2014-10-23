@@ -11,6 +11,7 @@
 
 #define DATA_FILES_PER_BLOCK		10
 #define CODE_FILES_PER_BLOCK		10
+#define CHUNK_SIZE			384
 
 struct fountain_hdr {
 	__u32	num_blocks;
@@ -35,7 +36,7 @@ struct tmp_sockaddr_storage {
 	char memory[256];
 };
 
-struct sockaddr *__get_addr(char *str1, int *plen);
+struct sockaddr *get_addr(char *str1, int *plen);
 
 void send_packet(int s, const char *buf, int n, const struct sockaddr *dst,
 	socklen_t dst_len);
