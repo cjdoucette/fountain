@@ -16,15 +16,15 @@ ENCODED_DIR = "encoded"
 
 USAGE =
   "\nUsage:\n"                             \
-  "\truby spray.rb srv_addr_file data_file_path\n\n"
+  "\truby spray.rb srv-bind-addr srv-dst-addr data-path\n\n"
 
 if __FILE__ == $PROGRAM_NAME
-  if ARGV.length != 2 or !File.exists?(ARGV[1])
+  if ARGV.length != 3 or !File.exists?(ARGV[1])
     puts(USAGE)
     exit
   end
 
-  data_file_path = ARGV[1]
+  data_file_path = ARGV[2]
   data_file = File.basename(data_file_path)
   data_file_splits_dir = File.join(SPLITS_DIR, data_file)
 
@@ -83,5 +83,5 @@ if __FILE__ == $PROGRAM_NAME
   puts("Finished coding.")
 
   # Use network application to serve encoded file.
-  `./spray #{ARGV[0]} #{ENCODED_DIR} #{padding}`
+  `./spray #{ARGV[0]} #{ARGV[1]} #{ARGV[2]} #{padding}`
 end

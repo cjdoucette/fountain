@@ -8,14 +8,16 @@
 #include <sys/socket.h>
 #include "fountain.h"
 
-#define USAGE	"usage:\t./spray srv_addr_file coding_dir padding\n"
+#define USAGE	"usage:\t./spray srv-bind-addr srv-dst-addr data-path pad\n"
 
 #define CODING_META_INFO_FILE_LEN	4
 #define META_FILE_NAME			"meta.txt"
+#define ENCODED_DIR			"encoded"
 
 static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
 		      __u32 num_blocks, __u32 block_id, __s16 chunk_id,
-		      const char *chunk_path, __u16 padding)
+		      const char *chunk_path, __u16 padding,
+		      const char *data_name)
 {
 	FILE *chunk;
 	struct fountain_hdr *fountain;
@@ -37,6 +39,10 @@ static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
 	fountain->chunk_id = htons(chunk_id);
 	fountain->packet_len = htons(packet_len);
 	fountain->padding = htons(padding);
+	strncpy(fountain->filename, data_name, strlen(data_name));
+	memset(fountain->filename + strlen(data_name), 0,
+	       10 - strlen(data_name));
+	fountain->filename[9] = '\0';
 
 	bytes_read = fread(fountain->data, 1, file_size, chunk);
 	assert(!ferror(chunk));
@@ -52,54 +58,44 @@ static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
 	fclose(chunk);
 }
 
-void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
+void spray(int s, struct sockaddr *cli, unsigned int cli_len,
+	   const char *file_path, __u16 padding)
 {
-	struct tmp_sockaddr_storage cli_stack;
-	struct sockaddr *cli = (struct sockaddr *)&cli_stack;
-	unsigned int cli_len = sizeof(cli_stack);
-
-	char *req_file_path;
-	char *req_meta_file_path;
-	char *req_file;
+	char *meta_file_path;
+	char *encoded_file_path;
+	char *file_name = basename(file_path);
 
 	FILE *meta_file;
 
 	int size;
-	ssize_t num_read;
 	__u32 num_blocks;
 	__u32 j;
 	__u16 i;
 
-	/* Need to NUL terminate the requested file string. */
-	req_file = alloca(req_len + 1);
-	req_file[req_len] = '\0';
-	num_read = recvfrom(s, req_file, req_len, 0, cli, &cli_len);
-	assert(num_read == req_len);
-
-	size = asprintf(&req_file_path, "%s/%s", coding_dir, req_file);
-	if (size == -1) {
-		fprintf(stderr,
-			"asprintf: cannot allocate file path string\n");
-		return;
-	}
+        size = asprintf(&encoded_file_path, "%s/%s", ENCODED_DIR, file_name);
+        if (size == -1) {
+                fprintf(stderr,
+                        "asprintf: cannot allocate encoded file path\n");
+                return;
+        }
 
 	/* Check if a directory for that name exists. */
-	if (!dir_exists(req_file_path)) {
-		fprintf(stderr, "invalid request; %s does not exist\n",
-			req_file);
+	if (!dir_exists(encoded_file_path)) {
+		fprintf(stderr, "invalid request; %s encoding does not exist\n",
+			file_name);
 		return;
 	}
 
 	/* If it does exist, open the meta file to find the number of blocks. */
-	size = asprintf(&req_meta_file_path, "%s/%s", req_file_path,
-			META_FILE_NAME);
+	size = asprintf(&meta_file_path, "%s/%s/%s", ENCODED_DIR,
+			file_name, META_FILE_NAME);
 	if (size == -1) {
 		fprintf(stderr,
 			"asprintf: cannot allocate meta path string\n");
 		return;
 	}
 
-	meta_file = fopen(req_meta_file_path, "r");
+	meta_file = fopen(meta_file_path, "r");
 	if (!meta_file) {
 		fprintf(stderr,
 			"fopen: cannot open meta file\n");
@@ -119,8 +115,8 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 		for (j = 0; j < num_blocks; j++) {
 			char *chunk_path;
 			size = asprintf(&chunk_path,
-					"%s/b%0*d/k%0*d",
-					req_file_path,
+					"%s/%s/b%0*d/k%0*d",
+					ENCODED_DIR, file_name,
 					num_digits(num_blocks - 1), j,
 					num_digits(DATA_FILES_PER_BLOCK), i);
 			if (size == -1) {
@@ -129,8 +125,8 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 				return;
 			}
 			usleep(100);
-			send_file(s, cli, cli_len, num_blocks,
-				  j, i, chunk_path, padding);
+			send_file(s, cli, cli_len, num_blocks, j, i,
+				  chunk_path, padding, file_name);
 		}
 	}
 
@@ -138,8 +134,8 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 		for (j = 0; j < num_blocks; j++) {
 			char *chunk_path;
 			size = asprintf(&chunk_path,
-					"%s/b%0*d/m%0*d",
-					req_file_path,
+					"%s/%s/b%0*d/m%0*d",
+					ENCODED_DIR, file_name,
 					num_digits(num_blocks - 1), j,
 					num_digits(CODE_FILES_PER_BLOCK), i);
 			if (size == -1) {
@@ -148,26 +144,16 @@ void spray(int s, const char *coding_dir, ssize_t req_len, __u16 padding)
 				return;
 			}
 			usleep(100);
-			send_file(s, cli, cli_len, num_blocks,
-				  j, -i, chunk_path, padding);
+			send_file(s, cli, cli_len, num_blocks, j, -i,
+				  chunk_path, padding, file_name);
 		}
-	}
-}
-
-static void recv_loop(int sock, const char *coding_dir_name, __u16 padding)
-{
-	while (1) {
-		ssize_t req_len = recvfrom(sock, NULL, 0, MSG_PEEK | MSG_TRUNC,
-					   NULL, NULL);
-		assert(req_len >= 0);
-		spray(sock, coding_dir_name, req_len, padding);
 	}
 }
 
 static int check_srv_params(int argc, char * const argv[])
 {
 	UNUSED(argv);
-	if (argc != 4) {
+	if (argc != 5) {
 		printf(USAGE);
 		return 1;
 	}
@@ -210,8 +196,8 @@ static int check_srv_params(int argc, char * const argv[])
 
 int main(int argc, char *argv[])
 {
-	struct sockaddr *srv;
-	int s, srv_len, rc;
+	struct sockaddr *srv, *cli;
+	int s, srv_len, cli_len, rc;
 	__u16 padding;
 
 	if (check_srv_params(argc, argv))
@@ -226,10 +212,13 @@ int main(int argc, char *argv[])
 	}
 
 	srv = get_addr(argv[1], &srv_len);
+	assert(srv);
 	assert(!bind(s, srv, srv_len));
+	cli = get_addr(argv[2], &cli_len);
+	assert(cli);
 
 	/* Read padding amount. */
-	rc = sscanf(argv[3], "%hd", &padding);
+	rc = sscanf(argv[4], "%hd", &padding);
 	if (errno != 0) {
 		fprintf(stderr, "%s: sscanf errno=%i: %s\n",
 			__func__, errno, strerror(errno));
@@ -239,7 +228,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	recv_loop(s, argv[2], padding);
+	spray(s, cli, cli_len, argv[3], padding);
 
 	free(srv);
 	assert(!close(s));

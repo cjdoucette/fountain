@@ -19,12 +19,13 @@ struct fountain_hdr {
 	__s16	chunk_id;
 	__u16	packet_len;
 	__u16	padding;
+	char	filename[10];
 	__u8	data[0];
 };
 
 
 int dir_exists(const char *filename);
-
+int file_exists(const char *filename);
 int num_digits(int num);
 
 /* The best appoach would be to use struct __kernel_sockaddr_storage

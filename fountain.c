@@ -14,6 +14,19 @@
 
 static int ppal_map_loaded = 0;
 
+int file_exists(const char *filename)
+{
+	struct stat st;
+	if (stat(filename, &st) == -1) {
+		if (errno == ENOENT)
+			return 0;
+		fprintf(stderr, "Error %d using stat on %s: %s\n",
+			errno, filename, strerror(errno));
+		exit(1);
+	}
+	return S_ISREG(st.st_mode);
+}
+
 int dir_exists(const char *filename)
 {
 	struct stat st;

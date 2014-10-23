@@ -37,7 +37,7 @@ install: $(TARGETS)
 	install -o root -g root -m 711 $(TARGETS) /bin
 
 clean:
-	rm -f *.o *.d cscope.out $(TARGETS)
+	rm -f *.o *.d cscope.out spray drink
 
 cscope:
 	cscope -b *.c *.h
