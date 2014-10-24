@@ -128,7 +128,7 @@ void recv_file(int s)
 	padding = ntohs(fountain_pkt->padding);
 	filename = fountain_pkt->filename;
 	/* Last byte of filename should be a NULL byte. */
-	assert(filename[9] == '\0');
+	assert(filename[FILE_NAME_MAX_LEN - 1] == '\0');
 
 	/* Create directories to hold received file. */
 	create_block_dirs(filename, num_blocks);

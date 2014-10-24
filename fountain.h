@@ -12,6 +12,7 @@
 #define DATA_FILES_PER_BLOCK		10
 #define CODE_FILES_PER_BLOCK		10
 #define CHUNK_SIZE			384
+#define FILE_NAME_MAX_LEN		18
 
 struct fountain_hdr {
 	__u32	num_blocks;
@@ -19,7 +20,7 @@ struct fountain_hdr {
 	__s16	chunk_id;
 	__u16	packet_len;
 	__u16	padding;
-	char	filename[10];
+	char	filename[18];
 	__u8	data[0];
 };
 

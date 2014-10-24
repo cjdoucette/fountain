@@ -17,7 +17,7 @@
 static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
 		      __u32 num_blocks, __u32 block_id, __s16 chunk_id,
 		      const char *chunk_path, __u16 padding,
-		      const char *data_name)
+		      const char *file_name)
 {
 	FILE *chunk;
 	struct fountain_hdr *fountain;
@@ -39,10 +39,10 @@ static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
 	fountain->chunk_id = htons(chunk_id);
 	fountain->packet_len = htons(packet_len);
 	fountain->padding = htons(padding);
-	strncpy(fountain->filename, data_name, strlen(data_name));
-	memset(fountain->filename + strlen(data_name), 0,
-	       10 - strlen(data_name));
-	fountain->filename[9] = '\0';
+	strncpy(fountain->filename, file_name, strlen(file_name));
+	memset(fountain->filename + strlen(file_name), 0,
+	       FILE_NAME_MAX_LEN - strlen(file_name));
+	fountain->filename[FILE_NAME_MAX_LEN - 1] = '\0';
 
 	bytes_read = fread(fountain->data, 1, file_size, chunk);
 	assert(!ferror(chunk));

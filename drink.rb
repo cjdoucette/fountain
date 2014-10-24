@@ -34,6 +34,7 @@ if __FILE__ == $PROGRAM_NAME
     open(File.join(DECODED_DIR, 'name.txt'), 'r') { |f|
       filename = f.readline().strip()
     }
+    `rm #{File.join(DECODED_DIR, 'name.txt')}`
 
     padding = 0
     Dir.foreach(File.join(DECODED_DIR, filename)) do |block|
