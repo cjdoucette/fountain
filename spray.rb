@@ -66,7 +66,7 @@ if __FILE__ == $PROGRAM_NAME
 
   # Calculate number of zero bytes needed to
   # pad the file to a multiple of BLOCK_LEN.
-  padding = BLOCK_LEN - (file_size % BLOCK_LEN)
+  padding = (BLOCK_LEN - (file_size % BLOCK_LEN) % BLOCK_LEN)
 
   # Check if an encoding already exists for this file.
   # If it does, we don't have to encode it, we just
@@ -78,7 +78,8 @@ if __FILE__ == $PROGRAM_NAME
   end
 
   # Pad with zeros up to the nearest multiple of BLOCK_LEN, if necessary.
-  if padding != BLOCK_LEN
+  if padding > 0
+    FileUtils.cp(file_path, backup(file_path))
     pad_with_zeros(file_path, padding)
   end
 
@@ -100,8 +101,8 @@ if __FILE__ == $PROGRAM_NAME
   # Remove the splits of the file, as they are no longer of any use.
   FileUtils.rm_r(SPLITS_DIR)
 
-  if padding != BLOCK_LEN
-    `head -c-#{padding} #{file_path} > #{backup(file_path)}`
+  # If we needed to pad the file, restore the original file.
+  if padding > 0
     FileUtils.mv(backup(file_path), file_path)
   end
 
