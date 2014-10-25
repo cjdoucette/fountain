@@ -42,6 +42,11 @@ void create_block_dirs(const char *filename, __u32 num_blocks)
 			"asprintf: cannot allocate file path string\n");
 		return;
 	}
+
+	if (file_exists(decoded_file_path))
+		/* Remove existing file. */
+		remove(decoded_file_path);
+
 	rc = mkdir(decoded_file_path, 0777);
 	if (rc < 0) {
 		fprintf(stderr, "%s: mkdir errno=%i on %s: %s\n",
@@ -210,7 +215,8 @@ void recv_file(int s)
 		assert(rc >= 0);
 		if (!rc) {
 			/* No response from server. */
-			fprintf(stderr, "Done receiving packets. Decoding.\n");
+			fprintf(stderr,
+				"\nDone receiving packets. Decoding...\n");
 			return;
 		}
 

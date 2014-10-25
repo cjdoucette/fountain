@@ -28,13 +28,6 @@ if __FILE__ == $PROGRAM_NAME
   data_file = File.basename(data_file_path)
   data_file_splits_dir = File.join(SPLITS_DIR, data_file)
 
-  # Check if an encoding already exists for this file.
-  if Dir.exists?(File.join(ENCODED_DIR, data_file))
-    puts("Encoded files for #{data_file_path} already exist.\n"    \
-         "Remove #{File.join(ENCODED_DIR, data_file)} and try again.")
-    exit
-  end
-
   size = File.size(data_file_path)
   num_blocks = (File.size(data_file_path) / BLOCK_LEN)
   if File.size(data_file_path) % BLOCK_LEN != 0
@@ -42,6 +35,13 @@ if __FILE__ == $PROGRAM_NAME
   end
   num_digits = (num_blocks - 1).to_s().size()
   padding = BLOCK_LEN - (size % BLOCK_LEN)
+
+  # Check if an encoding already exists for this file.
+  if Dir.exists?(File.join(ENCODED_DIR, data_file))
+    puts("Sending previously encoded files for #{data_file_path}.")
+    `./spray #{ARGV[0]} #{ARGV[1]} #{ARGV[2]} #{padding}`
+    exit
+  end
 
   # Pad with zeros up to the nearest multiple of BLOCK_LEN, if necessary.
   if padding != BLOCK_LEN
