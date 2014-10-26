@@ -7,15 +7,25 @@
 # contents using interleaved Cauchy Reed-Solomon coding.
 #
 
-DATA_LEN = 384
-NUM_DATA_FILES = 10
-BLOCK_LEN = NUM_DATA_FILES * DATA_LEN
+require 'fileutils'
 
-DECODED_DIR = "decoded"
+DATA_LEN =		384
+NUM_DATA_FILES =	10
+BLOCK_LEN =		NUM_DATA_FILES * DATA_LEN
+
+DECODED_DIR =		"decoded"
+RCVD_FILENAME =		"name.txt"
+PADDING_FILENAME =	"padding.txt"
+DECODER =		"decoder"
+BAK_EXT =		".bak"
 
 USAGE =
   "\nUsage:\n"                             \
   "\truby drink.rb cli-bind-addr\n\n"
+
+def backup(s)
+  return s + BAK_EXT
+end
 
 if __FILE__ == $PROGRAM_NAME
   if ARGV.length != 1
@@ -24,46 +34,64 @@ if __FILE__ == $PROGRAM_NAME
   end
 
   if !Dir.exists?(DECODED_DIR)
-    `mkdir #{DECODED_DIR}`
+    FileUtils.mkdir(DECODED_DIR)
   end
 
   while true
+    # Wait for a file to be received.
     `./drink #{ARGV[0]}`
 
+    # Find the name of hte received file.
     filename = nil
-    open(File.join(DECODED_DIR, 'name.txt'), 'r') { |f|
+    open(File.join(DECODED_DIR, RCVD_FILENAME), 'r') { |f|
       filename = f.readline().strip()
     }
-    `rm #{File.join(DECODED_DIR, 'name.txt')}`
+    FileUtils.rm(File.join(DECODED_DIR, RCVD_FILENAME))
 
     padding = 0
     Dir.foreach(File.join(DECODED_DIR, filename)) do |block|
       next if block == '.' or block == '..'
+
+      # Get padding for file.
       if block == 'padding.txt'
-        open(File.join(DECODED_DIR, filename, 'padding.txt'), 'r') { |f|
+        open(File.join(DECODED_DIR, filename, PADDING_FILENAME), 'r') { |f|
           padding = f.readline().strip().to_i()
         }
         next 
       end
+
+      # Directory to place this decoded block.
       block_path = File.join(DECODED_DIR, filename, block)
+
+      # Number of files representing the original data. If there are
+      # enough of these, decoding doesn't need to happen -- the
+      # pieces can just be concatenated together to obtain the block.
       num_orig_files = `ls #{File.join(block_path, "k")}* | wc -l`.to_i()
       if num_orig_files == NUM_DATA_FILES
-        `cat #{File.join(block_path, "k")}* > #{File.join(block_path, block + "_decoded")}`
+        `cat #{File.join(block_path, "k")}* > \
+	     #{File.join(block_path, block + "_decoded")}`
       else
-        `decoder #{File.join(DECODED_DIR, filename)} #{block}` 
+        `#{DECODER} #{File.join(DECODED_DIR, filename)} #{block}` 
       end
     end
 
-    new_filename = File.join(DECODED_DIR, filename)
-    bak_filename = new_filename + ".bak"
-    `cat #{File.join(new_filename, "b*", "b*_decoded")} > #{bak_filename}`
-    `rm -r #{new_filename}`
-    if padding != 3840
-      `head -c-#{padding} #{bak_filename} > #{new_filename}`
-      `rm #{bak_filename}`
+    # Concatenate all the blocks together.
+    file_path = File.join(DECODED_DIR, filename)
+    backup_file_path = backup(file_path)
+    `cat #{File.join(file_path, "b*", "b*_decoded")} > #{backup_file_path}`
+
+    # Remove the decoded directories, since we don't
+    # need the individual pieces anymore.
+    FileUtils.rm_r(file_path)
+
+    # Remove padding from end of file, if necessary.
+    if padding > 0
+      `head -c-#{padding} #{backup_file_path} > #{file_path}`
+      FileUtils.rm(backup_file_path)
     else
-      `mv #{bak_filename} #{new_filename}`
+      FileUtils.mv(backup_file_path, file_path)
     end
+
     puts("File decoded.")
   end
 end
