@@ -110,6 +110,4 @@ if __FILE__ == $PROGRAM_NAME
 
   # Use network application to serve encoded file.
   `./spray #{ARGV[0]} #{ARGV[1]} #{ARGV[2]} #{padding}`
-
-  puts("File sent.")
 end

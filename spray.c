@@ -8,21 +8,57 @@
 #include <sys/socket.h>
 #include "fountain.h"
 
-#define USAGE	"usage:\t./spray srv-bind-addr srv-dst-addr data-path pad\n"
+#define USAGE	"usage:\t./spray srv-bind-addr srv-dst-addr file-path padding\n"
 
 #define CODING_META_INFO_FILE_LEN	4
-#define META_FILE_NAME			"meta.txt"
+#define META_FILENAME			"meta.txt"
 #define ENCODED_DIR			"encoded"
 
-static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
-		      __u32 num_blocks, __u32 block_id, __s16 chunk_id,
-		      const char *chunk_path, __u16 padding,
-		      const char *file_name)
+static int get_num_blocks(const char *filename)
+{
+	char *meta_file_path;
+	FILE *meta_file;
+	__u32 num_blocks;
+	int size;
+
+	/* If it does exist, open the meta file to find the number of blocks. */
+	size = asprintf(&meta_file_path, "%s/%s/%s", ENCODED_DIR,
+			filename, META_FILENAME);
+	if (size == -1) {
+		fprintf(stderr,
+			"asprintf: cannot allocate meta path string\n");
+		return -1;
+	}
+
+	meta_file = fopen(meta_file_path, "r");
+	if (!meta_file) {
+		fprintf(stderr,
+			"fopen: cannot open meta file\n");
+		return -1;
+	}
+
+	/* Read in a single four-byte integer representing number of blocks. */
+	size = fscanf(meta_file, "%d", &num_blocks);
+	fclose(meta_file);
+	if (size != 1) {
+		fprintf(stderr,
+			"fscanf: cannot read number of blocks\n");
+		return -1;
+	}
+
+	return num_blocks;
+}
+
+static void send_file(int s, const struct sockaddr *cli, int cli_len,
+		      const char *filename, const char *chunk_path,
+		      __u32 num_blocks, __u32 block_id,
+		      __s16 chunk_id, __u16 padding) 
 {
 	FILE *chunk;
 	struct fountain_hdr *fountain;
 	long file_size;
 	size_t bytes_read;
+	size_t filename_len;
 	ssize_t rc;
 	__u16 packet_len;
 
@@ -34,15 +70,20 @@ static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
 
 	packet_len = sizeof(*fountain) + file_size;
 	fountain = alloca(packet_len);
+
 	fountain->num_blocks = htonl(num_blocks);
 	fountain->block_id = htonl(block_id);
 	fountain->chunk_id = htons(chunk_id);
 	fountain->packet_len = htons(packet_len);
 	fountain->padding = htons(padding);
-	strncpy(fountain->filename, file_name, strlen(file_name));
-	memset(fountain->filename + strlen(file_name), 0,
-	       FILE_NAME_MAX_LEN - strlen(file_name));
-	fountain->filename[FILE_NAME_MAX_LEN - 1] = '\0';
+
+	filename_len = strlen(filename);
+	strncpy(fountain->filename, filename,
+		filename_len > FILENAME_MAX_LEN
+		? FILENAME_MAX_LEN
+		: filename_len);
+	memset(fountain->filename + filename_len, 0,
+	       FILENAME_MAX_LEN - filename_len);
 
 	bytes_read = fread(fountain->data, 1, file_size, chunk);
 	assert(!ferror(chunk));
@@ -58,21 +99,63 @@ static void send_file(int s, const struct sockaddr *cli, socklen_t cli_len,
 	fclose(chunk);
 }
 
-void spray(int s, struct sockaddr *cli, unsigned int cli_len,
+static void send_files(int s, const struct sockaddr *cli, int cli_len,
+		       const char *filename, const char *prefix,
+		       __u32 num_blocks, __u32 files_per_block,
+		       __u16 padding, int send_data)
+{
+	unsigned int i, j;
+	int size;
+
+	/* Loop over all blocks. */
+	for (i = 1; i <= files_per_block; i++) {
+		__s16 chunk_id = send_data ? i : -i;
+		for (j = 0; j < num_blocks; j++) {
+			char *chunk_path;
+			size = asprintf(&chunk_path, "%s/%s/b%0*d/%s%0*d",
+					ENCODED_DIR, filename,
+					num_digits(num_blocks - 1), j,
+					prefix,
+					num_digits(DATA_FILES_PER_BLOCK), i);
+			if (size == -1) {
+				fprintf(stderr,
+					"asprintf: cannot alloc chunk path\n");
+				return;
+			}
+
+			/* XXX Make the parameter depend on the file size. */
+			usleep(100);
+			send_file(s, cli, cli_len, filename, chunk_path,
+				  num_blocks, j, chunk_id, padding);
+		}
+	}
+}
+
+static inline void send_data_files(int s, const struct sockaddr *cli,
+				   int cli_len, const char *filename,
+				   __u32 num_blocks, __u16 padding)
+{
+	send_files(s, cli, cli_len, filename, "k", num_blocks,
+		   DATA_FILES_PER_BLOCK, padding, 1);
+}
+
+static inline void send_code_files(int s, const struct sockaddr *cli,
+				   int cli_len, const char *filename,
+				   __u32 num_blocks, __u16 padding)
+{
+	send_files(s, cli, cli_len, filename, "m", num_blocks,
+		   CODE_FILES_PER_BLOCK, padding, 0);
+}
+
+void spray(int s, const struct sockaddr *cli, int cli_len,
 	   const char *file_path, __u16 padding)
 {
-	char *meta_file_path;
+	char *filename = basename(file_path);
 	char *encoded_file_path;
-	char *file_name = basename(file_path);
-
-	FILE *meta_file;
-
 	int size;
-	__u32 num_blocks;
-	__u32 j;
-	__u16 i;
+	int num_blocks;
 
-        size = asprintf(&encoded_file_path, "%s/%s", ENCODED_DIR, file_name);
+        size = asprintf(&encoded_file_path, "%s/%s", ENCODED_DIR, filename);
         if (size == -1) {
                 fprintf(stderr,
                         "asprintf: cannot allocate encoded file path\n");
@@ -81,73 +164,21 @@ void spray(int s, struct sockaddr *cli, unsigned int cli_len,
 
 	/* Check if a directory for that name exists. */
 	if (!dir_exists(encoded_file_path)) {
-		fprintf(stderr, "invalid request; %s encoding does not exist\n",
-			file_name);
-		return;
-	}
-
-	/* If it does exist, open the meta file to find the number of blocks. */
-	size = asprintf(&meta_file_path, "%s/%s/%s", ENCODED_DIR,
-			file_name, META_FILE_NAME);
-	if (size == -1) {
 		fprintf(stderr,
-			"asprintf: cannot allocate meta path string\n");
+			"invalid request; %s encoding does not exist\n",
+			filename);
 		return;
 	}
 
-	meta_file = fopen(meta_file_path, "r");
-	if (!meta_file) {
+	num_blocks = get_num_blocks(filename);
+	if (num_blocks == -1) {
 		fprintf(stderr,
-			"fopen: cannot open meta file\n");
-		return;
-	}
-	/* Read in a single four-byte integer. */
-	size = fscanf(meta_file, "%d", &num_blocks);
-	fclose(meta_file);
-	if (size != 1) {
-		fprintf(stderr,
-			"fscanf: cannot read number of blocks\n");
+			"get_num_blocks: cannot find number of blocks\n");
 		return;
 	}
 
-	/* Loop over all blocks. */
-	for (i = 1; i <= DATA_FILES_PER_BLOCK; i++) {
-		for (j = 0; j < num_blocks; j++) {
-			char *chunk_path;
-			size = asprintf(&chunk_path,
-					"%s/%s/b%0*d/k%0*d",
-					ENCODED_DIR, file_name,
-					num_digits(num_blocks - 1), j,
-					num_digits(DATA_FILES_PER_BLOCK), i);
-			if (size == -1) {
-				fprintf(stderr,
-					"asprintf: cannot allocate chunk path string\n");
-				return;
-			}
-			usleep(100);
-			send_file(s, cli, cli_len, num_blocks, j, i,
-				  chunk_path, padding, file_name);
-		}
-	}
-
-	for (i = 1; i <= CODE_FILES_PER_BLOCK; i++) {
-		for (j = 0; j < num_blocks; j++) {
-			char *chunk_path;
-			size = asprintf(&chunk_path,
-					"%s/%s/b%0*d/m%0*d",
-					ENCODED_DIR, file_name,
-					num_digits(num_blocks - 1), j,
-					num_digits(CODE_FILES_PER_BLOCK), i);
-			if (size == -1) {
-				fprintf(stderr,
-					"asprintf: cannot allocate chunk path string\n");
-				return;
-			}
-			usleep(100);
-			send_file(s, cli, cli_len, num_blocks, j, -i,
-				  chunk_path, padding, file_name);
-		}
-	}
+	send_data_files(s, cli, cli_len, filename, num_blocks, padding);
+	send_code_files(s, cli, cli_len, filename, num_blocks, padding);
 }
 
 static int check_srv_params(int argc, char * const argv[])
@@ -159,40 +190,6 @@ static int check_srv_params(int argc, char * const argv[])
 	}
 	return 0;
 }
-
-
-/*
- * Check the parameters. The server should receive a directory that
- * contains subdirectories that represent a given chunk. The subdirectories
- * should be of the form:
- *
- * sample_vid/
- *   sample_vid00
- *   sample_vid01
- *   sample_vid02
- *   ...
- *   sample_vid10
- *   ...
- *
- * Each one of these directories should contain 21 files, exactly ten
- * of which are data files, ten of which are coding files, and one of
- * which is a meta file.
- *
- * The server should also receive an XIP address file.
- *
- * Next, the server should create packets based on the individual files.
- * Each packet should be of the form:
- *
- * |-------------------------------------------|
- * |              num-of-blocks                |
- * |-------------------------------------------|
- * |                 block-id                  |
- * |-------------------------------------------|
- * |        chunk-id     |      packet-len     |
- * |-------------------------------------------|
- *
- * 
- */
 
 int main(int argc, char *argv[])
 {
@@ -224,12 +221,14 @@ int main(int argc, char *argv[])
 			__func__, errno, strerror(errno));
 		return 1;
 	} else if (rc != 1) { 
-		fprintf(stderr, "No padding number exists.\n");
+		fprintf(stderr, "No padding data exists.\n");
 		return 1;
 	}
 
 	spray(s, cli, cli_len, argv[3], padding);
+	fprintf(stderr, "File sent.\n");
 
+	free(cli);
 	free(srv);
 	assert(!close(s));
 	return 0;

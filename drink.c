@@ -105,6 +105,7 @@ void recv_file(int s)
 	__u16 *num_recv_in_block;
 	__u32 blocks_filled = 0;
 	int n_recvd = 0;
+	int size;
 
 	/* Variables that hold fountain header data. */
 	__u32 num_blocks;
@@ -131,9 +132,13 @@ void recv_file(int s)
 	chunk_id_abs = chunk_id < 0 ? -chunk_id : chunk_id;
 	packet_len = ntohs(fountain_pkt->packet_len);
 	padding = ntohs(fountain_pkt->padding);
-	filename = fountain_pkt->filename;
-	/* Last byte of filename should be a NULL byte. */
-	assert(filename[FILE_NAME_MAX_LEN - 1] == '\0');
+
+	size = asprintf(&filename, "%s", fountain_pkt->filename);
+	if (size == -1) {
+		fprintf(stderr,
+			"asprintf: cannot allocate filename\n");
+		return;
+	}
 
 	/* Create directories to hold received file. */
 	create_block_dirs(filename, num_blocks);
