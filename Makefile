@@ -3,7 +3,9 @@ CFLAGS = -D_GNU_SOURCE -Wall -Wextra -g -MMD -I ../xiaconf/kernel-include \
 -I ../xiaconf/include
 LDFLAGS = -g -L ../xiaconf/libxia -lxia
 
-all: spray drink gf-complete jerasure
+all: spray drink
+
+install: gf-complete jerasure ldconfig
 
 spray: spray.o fountain.o
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -26,15 +28,12 @@ jerasure:
 	sudo make install; \
 	cd ..
 
-LIBS = gf-complete jerasure
+ldconfig:
+	sudo ldconfig
 
 -include *.d
 
 .PHONY: install clean cscope gf-complete jerasure
-
-install: $(TARGETS)
-	echo 'IMPORTANT: make sure that libxia is installed!'
-	install -o root -g root -m 711 $(TARGETS) /bin
 
 clean:
 	rm -f *.o *.d cscope.out spray drink
