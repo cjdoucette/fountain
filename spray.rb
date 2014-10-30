@@ -23,8 +23,8 @@ CODING_TECH =	"cauchy_good"
 WORD_SIZE =	8
 
 USAGE =
-  "\nUsage:\n"                             \
-  "\truby spray.rb srv-bind-addr srv-dst-addr data-path\n\n"
+  "\nUsage:\n"                           \
+  "\truby spray.rb srv-bind-addr srv-dst-addr data-path failure-rate\n\n"
 
 def pad_with_zeros(file_path, padding)
   `dd if=/dev/zero status=none bs=1 count=#{padding} >> #{file_path}`
@@ -43,7 +43,7 @@ def backup(s)
 end
 
 if __FILE__ == $PROGRAM_NAME
-  if ARGV.length != 3 or !File.exists?(ARGV[1])
+  if ARGV.length != 4 or !File.exists?(ARGV[1])
     puts(USAGE)
     exit
   end
@@ -73,7 +73,7 @@ if __FILE__ == $PROGRAM_NAME
   # need to send it.
   if Dir.exists?(File.join(ENCODED_DIR, filename))
     puts("Sending previously encoded files for #{file_path}...")
-    `./spray #{ARGV[0]} #{ARGV[1]} #{ARGV[2]} #{padding}`
+    `./spray #{ARGV[0]} #{ARGV[1]} #{ARGV[2]} #{padding} #{ARGV[3]}`
     exit
   end
 
@@ -109,5 +109,5 @@ if __FILE__ == $PROGRAM_NAME
   puts("Sending packets...")
 
   # Use network application to serve encoded file.
-  `./spray #{ARGV[0]} #{ARGV[1]} #{ARGV[2]} #{padding}`
+  `./spray #{ARGV[0]} #{ARGV[1]} #{ARGV[2]} #{padding} #{ARGV[3]}`
 end

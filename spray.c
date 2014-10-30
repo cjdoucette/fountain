@@ -8,7 +8,8 @@
 #include <sys/socket.h>
 #include "fountain.h"
 
-#define USAGE	"usage:\t./spray srv-bind-addr srv-dst-addr file-path padding\n"
+#define USAGE	"usage:\t./spray srv-bind-addr srv-dst-addr "\
+		"file-path padding failure-rate\n"
 
 #define CODING_META_INFO_FILE_LEN	4
 #define META_FILENAME			"meta.txt"
@@ -99,13 +100,14 @@ static void send_file(int s, const struct sockaddr *cli, int cli_len,
 	fclose(chunk);
 }
 
-static void send_files(int s, const struct sockaddr *cli, int cli_len,
-		       const char *filename, const char *prefix,
-		       __u32 num_blocks, __u32 files_per_block,
-		       __u16 padding, int send_data)
+static unsigned int send_files(int s, const struct sockaddr *cli, int cli_len,
+			       const char *filename, const char *prefix,
+			       __u32 num_blocks, __u32 files_per_block,
+			       __u16 padding, int send_data, unsigned int fr)
 {
 	unsigned int i, j;
 	int size;
+	unsigned int num_dropped = 0;
 
 	/* Loop over all blocks. */
 	for (i = 1; i <= files_per_block; i++) {
@@ -120,35 +122,56 @@ static void send_files(int s, const struct sockaddr *cli, int cli_len,
 			if (size == -1) {
 				fprintf(stderr,
 					"asprintf: cannot alloc chunk path\n");
-				return;
+				return -1;
 			}
 
-			/* XXX Make the parameter depend on the file size. */
 			usleep(100);
-			send_file(s, cli, cli_len, filename, chunk_path,
-				  num_blocks, j, chunk_id, padding);
+			if ((unsigned)rand() % 100 >= fr)
+				send_file(s, cli, cli_len, filename, chunk_path,
+					  num_blocks, j, chunk_id, padding);
+			else
+				num_dropped++;
 		}
 	}
+	return num_dropped;
 }
 
 static inline void send_data_files(int s, const struct sockaddr *cli,
-				   int cli_len, const char *filename,
-				   __u32 num_blocks, __u16 padding)
+					   int cli_len, const char *filename,
+					   __u32 num_blocks, __u16 padding,
+					   unsigned int fr)
 {
-	send_files(s, cli, cli_len, filename, "k", num_blocks,
-		   DATA_FILES_PER_BLOCK, padding, 1);
+	int num_dropped = send_files(s, cli, cli_len, filename,
+				     "k", num_blocks,
+				     DATA_FILES_PER_BLOCK, padding, 1, fr);
+
+	if (num_dropped == -1)
+		return;
+
+	fprintf(stderr, "Dropped %d data packets out of %d (%.1f%%)\n",
+		num_dropped, DATA_FILES_PER_BLOCK * num_blocks,
+		100 * (float)num_dropped / (DATA_FILES_PER_BLOCK * num_blocks));
 }
 
 static inline void send_code_files(int s, const struct sockaddr *cli,
-				   int cli_len, const char *filename,
-				   __u32 num_blocks, __u16 padding)
+					   int cli_len, const char *filename,
+					   __u32 num_blocks, __u16 padding,
+					   unsigned int fr)
 {
-	send_files(s, cli, cli_len, filename, "m", num_blocks,
-		   CODE_FILES_PER_BLOCK, padding, 0);
+	int num_dropped = send_files(s, cli, cli_len, filename,
+				     "m", num_blocks,
+				     CODE_FILES_PER_BLOCK, padding, 0, fr);
+
+	if (num_dropped == -1)
+		return;
+
+	fprintf(stderr, "Dropped %d code packets out of %d (%.1f%%)\n",
+		num_dropped, CODE_FILES_PER_BLOCK * num_blocks,
+		100 * (float)num_dropped / (CODE_FILES_PER_BLOCK * num_blocks));
 }
 
 void spray(int s, const struct sockaddr *cli, int cli_len,
-	   const char *file_path, __u16 padding)
+	   const char *file_path, __u16 padding, unsigned int fr)
 {
 	char *filename = basename(file_path);
 	char *encoded_file_path;
@@ -177,14 +200,14 @@ void spray(int s, const struct sockaddr *cli, int cli_len,
 		return;
 	}
 
-	send_data_files(s, cli, cli_len, filename, num_blocks, padding);
-	send_code_files(s, cli, cli_len, filename, num_blocks, padding);
+	send_data_files(s, cli, cli_len, filename, num_blocks, padding, fr);
+	send_code_files(s, cli, cli_len, filename, num_blocks, padding, fr);
 }
 
 static int check_srv_params(int argc, char * const argv[])
 {
 	UNUSED(argv);
-	if (argc != 5) {
+	if (argc != 6) {
 		printf(USAGE);
 		return 1;
 	}
@@ -195,6 +218,7 @@ int main(int argc, char *argv[])
 {
 	struct sockaddr *srv, *cli;
 	int s, srv_len, cli_len, rc;
+	unsigned int fr;
 	__u16 padding;
 
 	if (check_srv_params(argc, argv))
@@ -225,7 +249,22 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	spray(s, cli, cli_len, argv[3], padding);
+	rc = sscanf(argv[5], "%d", &fr);
+	if (errno != 0) {
+		fprintf(stderr, "%s: sscanf errno=%i: %s\n",
+			__func__, errno, strerror(errno));
+		return 1;
+	} else if (rc != 1) { 
+		fprintf(stderr, "No failure rate exists.\n");
+		return 1;
+	}
+
+	if (fr > 100) {
+		fprintf(stderr, "Failure rate must be between 0 and 100.\n");
+		return 1;
+	}
+
+	spray(s, cli, cli_len, argv[3], padding, fr);
 	fprintf(stderr, "File sent.\n");
 
 	free(cli);

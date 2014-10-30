@@ -309,7 +309,7 @@ static void recv_file(int s)
 		chunk_id = ntohs(fountain_hdr->chunk_id);
 		chunk_id_abs = chunk_id < 0 ? -chunk_id : chunk_id;
 		packet_len = ntohs(fountain_hdr->packet_len);
-		assert(padding = ntohs(fountain_hdr->padding));
+		assert(padding == ntohs(fountain_hdr->padding));
 		assert(strncmp(filename, fountain_hdr->filename,
 		       strlen(filename)) == 0);
 
