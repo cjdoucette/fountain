@@ -66,7 +66,7 @@ if __FILE__ == $PROGRAM_NAME
 
   # Calculate number of zero bytes needed to
   # pad the file to a multiple of BLOCK_LEN.
-  padding = (BLOCK_LEN - (file_size % BLOCK_LEN) % BLOCK_LEN)
+  padding = (BLOCK_LEN - (file_size % BLOCK_LEN)) % BLOCK_LEN
 
   # Check if an encoding already exists for this file.
   # If it does, we don't have to encode it, we just
