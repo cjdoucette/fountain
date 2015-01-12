@@ -18,7 +18,7 @@ SPLITS_DIR =	"splits"
 ENCODED_DIR =	"encoded"
 META_FILE =	"meta.txt"
 BAK_EXT =	".bak"
-ENCODER =	"encoder"
+ENCODER =	"./encoder"
 CODING_TECH =	"cauchy_good"
 WORD_SIZE =	8
 

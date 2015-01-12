@@ -66,10 +66,10 @@ is the file name with "_k#" or "_m#" and then the extension.
 #include <signal.h>
 #include <gf_rand.h>
 #include <unistd.h>
-#include "jerasure.h"
-#include "reed_sol.h"
-#include "cauchy.h"
-#include "liberation.h"
+#include <jerasure.h>
+#include <jerasure/reed_sol.h>
+#include <jerasure/cauchy.h>
+#include <jerasure/liberation.h>
 #include "timing.h"
 
 #define N 10

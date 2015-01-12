@@ -67,11 +67,11 @@ same arguments, and encoder.c does error check.
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>
-#include "jerasure.h"
-#include "reed_sol.h"
-#include "galois.h"
-#include "cauchy.h"
-#include "liberation.h"
+#include <jerasure.h>
+#include <jerasure/reed_sol.h>
+#include <jerasure/galois.h>
+#include <jerasure/cauchy.h>
+#include <jerasure/liberation.h>
 #include "timing.h"
 
 #define N 10

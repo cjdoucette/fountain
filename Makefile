@@ -1,11 +1,9 @@
 CC = gcc
 CFLAGS = -D_GNU_SOURCE -Wall -Wextra -g -MMD -I ../xiaconf/kernel-include \
 -I ../xiaconf/include
-LDFLAGS = -g -L ../xiaconf/libxia -lxia
+LDFLAGS = -g -L ../xiaconf/libxia -lxia -lJerasure -lgf_complete
 
-all: spray drink
-
-install: gf-complete jerasure ldconfig
+all: encoder decoder spray drink
 
 spray: spray.o fountain.o
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -13,30 +11,16 @@ spray: spray.o fountain.o
 drink: drink.o fountain.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-gf-complete:
-	cd gf-complete; \
-	./autogen.sh; \
-	./configure; \
-	make; \
-	sudo make install; \
-	cd ..
+encoder: encoder.o timing.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-jerasure:
-	cd jerasure; \
-	./configure; \
-	make; \
-	sudo make install; \
-	cd ..
+decoder: decoder.o timing.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-ldconfig:
-	sudo ldconfig
-
--include *.d
-
-.PHONY: install clean cscope gf-complete jerasure
+.PHONY: install clean cscope encoder decoder
 
 clean:
-	rm -f *.o *.d cscope.out spray drink
+	rm -f *.o *.d cscope.out spray drink encoder decoder
 
 cscope:
 	cscope -b *.c *.h

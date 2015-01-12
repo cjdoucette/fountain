@@ -16,7 +16,7 @@ BLOCK_LEN =		NUM_DATA_FILES * DATA_LEN
 DECODED_DIR =		"decoded"
 RCVD_FILENAME =		"name.txt"
 PADDING_FILENAME =	"padding.txt"
-DECODER =		"decoder"
+DECODER =		"./decoder"
 BAK_EXT =		".bak"
 
 USAGE =
